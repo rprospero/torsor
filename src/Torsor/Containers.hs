@@ -5,12 +5,14 @@
 
 module Torsor.Containers (DiffableContainer(..), foldDiff, foldDiffM, ContainerDiff, differenceDiffableContainer, addDiffableContainer) where
 
+import Control.Monad.Zip (mzipWith)
 import Data.Foldable (Foldable (fold), foldl')
 import Data.Functor.Identity (Identity (..))
 import qualified Data.IntMap as IM
 import qualified Data.Map as M
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Sequence as S
+import qualified Data.Tree as T
 import Torsor
 
 
@@ -213,5 +215,27 @@ instance DiffableContainer Maybe Identity where
   zipper f a b = f <$> a <*> b
 
 instance (Torsor value diff) => Torsor (Maybe value) (ContainerDiff Maybe Identity value diff) where
+  difference = differenceDiffableContainer
+  add = addDiffableContainer
+
+instance DiffableContainer T.Tree ((,) [Int]) where
+  zipper = mzipWith
+
+  patchIn ([], value) _ = T.Node value []
+  patchIn (x:xs, value) (T.Node a ns) = T.Node a $ take x ns <> [patchIn (xs, value) (ns !! x)] <> drop (x+1) ns
+
+  patchOut ([x], _) (T.Node a ns) = T.Node a $ take x ns <> drop (x+1) ns
+  patchOut (x:xs, value) (T.Node a ns) = T.Node a $ take x ns <> [patchOut (xs, value) (ns !! x)] <> drop (x+1) ns
+
+  remained (T.Node new news) (T.Node old olds) = T.Node (new, old) $ zipWith remained news olds
+
+  gains (T.Node _ new) (T.Node _ old) =
+    foldMap (\(idx, (T.Node v ns)) -> pure ([idx], v)) $ drop (length old) $ zip [0..] new
+
+  losses (T.Node _ new) (T.Node _ old) =
+    foldMap (\(idx, (T.Node v ns)) -> pure ([idx], v)) $ drop (length new) $ zip [0..] old
+
+
+instance (Torsor value diff) => Torsor (T.Tree value) (ContainerDiff T.Tree ((,) [Int]) value diff) where
   difference = differenceDiffableContainer
   add = addDiffableContainer

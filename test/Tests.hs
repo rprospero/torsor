@@ -4,6 +4,7 @@ import qualified Data.IntMap as IM
 import qualified Data.Map as M
 import Data.Monoid
 import qualified Data.Sequence as S
+import qualified Data.Tree as T
 import Torsor
 import Torsor.Containers
 import Test.Tasty
@@ -16,7 +17,7 @@ tests :: TestTree
 tests = testGroup "Tests" [differenceableTests]
 
 differenceableTests :: TestTree
-differenceableTests = testGroup "Torsor" [intTests, mapTests, intMapTests, sequenceTests, maybeTests]
+differenceableTests = testGroup "Torsor" [intTests, mapTests, intMapTests, sequenceTests, maybeTests, treeTests]
 
 intTests :: TestTree
 intTests =
@@ -57,6 +58,14 @@ maybeTests =
     "Maybe"
     [ QC.testProperty "Add law" $ \new old -> add (difference new old) old == (new :: Maybe Int),
       QC.testProperty "Path Law" $ \old middle new -> add (difference middle old <> difference new middle) old == (new :: Maybe Int)
+    ]
+
+treeTests :: TestTree
+treeTests =
+  testGroup
+    "Tree"
+    [ QC.testProperty "Add law" $ \new old -> add (difference new old) old == (new :: T.Tree Int),
+      QC.testProperty "Path Law" $ \old middle new -> add (difference middle old <> difference new middle) old == (new :: T.Tree Int)
     ]
 
 eqDouble :: (Ord a, Fractional a) => a -> a -> Bool
